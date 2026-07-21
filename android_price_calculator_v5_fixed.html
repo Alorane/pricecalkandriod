@@ -1,0 +1,382 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Калькулятор цен на Android</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #0b0d12;
+      --card: #151923;
+      --card2: #1b2130;
+      --text: #f5f7fb;
+      --muted: #9ba6b7;
+      --line: #2a3243;
+      --accent: #7c9cff;
+      --good: #62d69b;
+      --warn: #ffca6b;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      background: radial-gradient(circle at top, #182036 0, var(--bg) 42%);
+      color: var(--text);
+      font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      padding: 20px;
+    }
+    .wrap { max-width: 720px; margin: 0 auto; }
+    h1 { font-size: clamp(26px, 6vw, 42px); margin: 8px 0 6px; }
+    .lead { color: var(--muted); margin: 0 0 22px; line-height: 1.5; }
+    .card {
+      background: rgba(21,25,35,.94);
+      border: 1px solid var(--line);
+      border-radius: 22px;
+      padding: 18px;
+      box-shadow: 0 18px 60px rgba(0,0,0,.28);
+      margin-bottom: 16px;
+    }
+    label { display:block; font-size:14px; color:var(--muted); margin-bottom:8px; }
+    select, input {
+      width: 100%;
+      border: 1px solid var(--line);
+      background: var(--card2);
+      color: var(--text);
+      border-radius: 14px;
+      padding: 15px 16px;
+      font-size: 18px;
+      outline: none;
+    }
+    select:focus, input:focus { border-color: var(--accent); }
+    .grid { display:grid; grid-template-columns:1fr 1fr; gap:14px; }
+    .result-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:10px; }
+    .result {
+      background: var(--card2);
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      padding: 14px;
+      text-align:center;
+    }
+    .result strong { display:block; margin-top:7px; font-size:clamp(20px,5vw,30px); }
+    .recommended {
+      border-color: var(--accent);
+      background: linear-gradient(180deg, rgba(124,156,255,.18), var(--card2));
+    }
+    .recommended strong { color: #b7c6ff; }
+    .profit {
+      display:flex; justify-content:space-between; gap:16px;
+      margin-top:14px; padding-top:14px; border-top:1px solid var(--line);
+      color:var(--muted);
+    }
+    .profit b { color:var(--good); }
+    details { margin-top:14px; }
+    summary { cursor:pointer; color:var(--muted); }
+    .formula {
+      margin-top:12px; padding:12px; border-radius:12px;
+      background:#10141d; color:#c8d0de; font-family:ui-monospace, SFMono-Regular, Menlo, monospace;
+      line-height:1.55;
+    }
+    .note { font-size:13px; color:var(--muted); line-height:1.5; }
+    button {
+      width:100%; border:0; border-radius:14px; padding:14px;
+      font-size:16px; font-weight:700; cursor:pointer;
+      background:var(--accent); color:#081026; margin-top:14px;
+    }
+    .toggle-row {
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:16px;
+      padding:14px 0 4px;
+      color:var(--muted);
+    }
+    .switch {
+      position:relative;
+      display:inline-block;
+      width:54px;
+      height:30px;
+      flex:0 0 auto;
+    }
+    .switch input { display:none; }
+    .slider {
+      position:absolute;
+      inset:0;
+      cursor:pointer;
+      background:#343c4f;
+      border-radius:999px;
+      transition:.2s;
+    }
+    .slider:before {
+      content:"";
+      position:absolute;
+      width:24px;
+      height:24px;
+      left:3px;
+      top:3px;
+      background:white;
+      border-radius:50%;
+      transition:.2s;
+    }
+    .switch input:checked + .slider { background:var(--accent); }
+    .switch input:checked + .slider:before { transform:translateX(24px); }
+    .hidden { display:none !important; }
+    @media (max-width: 600px) {
+      body { padding: 12px; }
+      .grid, .result-grid { grid-template-columns:1fr; }
+      .result { display:flex; align-items:center; justify-content:space-between; text-align:left; }
+      .result strong { margin:0; }
+    }
+  </style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Калькулятор цен Android</h1>
+  <p class="lead">Выбери работу, введи закупку детали — калькулятор покажет диапазон цены.</p>
+
+  <div class="card">
+    <div class="grid">
+      <div>
+        <label for="category">Категория работы</label>
+        <select id="category">
+          <option value="screen">Замена дисплея</option>
+          <option value="battery">Замена аккумулятора</option>
+          <option value="flex">Шлейф / разъём / микрофон</option>
+          <option value="cover">Задняя крышка / стекло камеры</option>
+          <option value="module">Камера / динамик / вибро / прочий модуль</option>
+          <option value="other">Прочая несложная замена</option>
+        </select>
+      </div>
+      <div>
+        <label for="cost">Себестоимость детали, ₽</label>
+        <input id="cost" type="number" min="0" step="1" inputmode="numeric" placeholder="Например, 2700" />
+      </div>
+      <div>
+        <label for="marginAdjust">Корректировка маржи, %</label>
+        <input id="marginAdjust" type="number" min="-50" max="100" step="5" inputmode="decimal" value="0" />
+      </div>
+    </div>
+    <p class="note" style="margin:12px 0 0;">
+      0% — стандартный расчёт. Например, −10% снижает прибыльную часть цены на 10%, +15% повышает её на 15%.
+    </p>
+  </div>
+
+  <div class="card">
+    <div class="result-grid">
+      <div class="result">
+        <span>Минимум</span>
+        <strong id="minPrice">—</strong>
+      </div>
+      <div class="result recommended">
+        <span>Рекомендуемая</span>
+        <strong id="recommendedPrice">—</strong>
+      </div>
+      <div class="result">
+        <span>Максимум</span>
+        <strong id="maxPrice">—</strong>
+      </div>
+    </div>
+
+    <div class="toggle-row">
+      <span>Показывать внутреннюю экономику</span>
+      <label class="switch">
+        <input id="economyToggle" type="checkbox" checked>
+        <span class="slider"></span>
+      </label>
+    </div>
+
+    <div id="economyBlock">
+      <div class="profit">
+        <span>Валовая прибыль без расходов</span>
+        <b id="grossProfit">—</b>
+      </div>
+    <div class="profit" style="margin-top:0;">
+      <span>Фактическая валовая маржа</span>
+      <b id="grossMargin">—</b>
+    </div>
+    <div class="profit" style="margin-top:0;">
+      <span>Мастер (30%)</span>
+      <b id="masterPay">—</b>
+    </div>
+    <div class="profit" style="margin-top:0;">
+      <span>Приемщик (6%)</span>
+      <b id="receiverPay">—</b>
+    </div>
+    <div class="profit" style="margin-top:0;">
+      <span><b>Остается сервису</b></span>
+      <b id="serviceProfit">—</b>
+    </div>
+    </div>
+
+    <details>
+      <summary>Как сейчас считается</summary>
+      <div class="formula" id="formulaText"></div>
+      <p class="note">Это тестовые коэффициенты. После твоих примеров подкрутим их по категориям, чтобы попадание в рынок было точнее.</p>
+    </details>
+
+    <button id="clearBtn" type="button">Очистить</button>
+  </div>
+</div>
+
+<script>
+  const rules = {
+    screen: {
+      name: "Замена дисплея",
+      tiers: [
+        { max: 1500, k: 1.65, fixed: 1700 },
+        { max: 5000, k: 1.42, fixed: 2200 },
+        { max: 10000, k: 1.32, fixed: 2700 },
+        { max: Infinity, k: 1.22, fixed: 3700 }
+      ],
+      spread: 0.06
+    },
+    battery: {
+      name: "Замена аккумулятора",
+      tiers: [
+        { max: 700, k: 1.65, fixed: 1200 },
+        { max: 1500, k: 1.45, fixed: 1450 },
+        { max: Infinity, k: 1.30, fixed: 1750 }
+      ],
+      spread: 0.08
+    },
+    flex: {
+      name: "Шлейф / разъём / микрофон",
+      tiers: [
+        { max: 300, k: 1.80, fixed: 1000 },
+        { max: 800, k: 1.55, fixed: 1150 },
+        { max: Infinity, k: 1.35, fixed: 1450 }
+      ],
+      spread: 0.09
+    },
+    cover: {
+      name: "Задняя крышка / стекло камеры",
+      tiers: [
+        { max: 500, k: 1.70, fixed: 900 },
+        { max: 1200, k: 1.45, fixed: 1100 },
+        { max: Infinity, k: 1.30, fixed: 1350 }
+      ],
+      spread: 0.09
+    },
+    module: {
+      name: "Камера / динамик / прочий модуль",
+      tiers: [
+        { max: 700, k: 1.60, fixed: 1100 },
+        { max: 2000, k: 1.40, fixed: 1350 },
+        { max: Infinity, k: 1.28, fixed: 1650 }
+      ],
+      spread: 0.08
+    },
+    other: {
+      name: "Прочая несложная замена",
+      tiers: [
+        { max: 500, k: 1.60, fixed: 1000 },
+        { max: 1500, k: 1.40, fixed: 1250 },
+        { max: Infinity, k: 1.28, fixed: 1550 }
+      ],
+      spread: 0.08
+    }
+  };
+
+  const category = document.getElementById("category");
+  const cost = document.getElementById("cost");
+  const marginAdjust = document.getElementById("marginAdjust");
+  const minPrice = document.getElementById("minPrice");
+  const recommendedPrice = document.getElementById("recommendedPrice");
+  const maxPrice = document.getElementById("maxPrice");
+  const grossProfit = document.getElementById("grossProfit");
+  const grossMargin = document.getElementById("grossMargin");
+  const masterPay = document.getElementById("masterPay");
+  const receiverPay = document.getElementById("receiverPay");
+  const serviceProfit = document.getElementById("serviceProfit");
+  const economyToggle = document.getElementById("economyToggle");
+  const economyBlock = document.getElementById("economyBlock");
+  const formulaText = document.getElementById("formulaText");
+
+  const round100 = value => Math.max(0, Math.round(value / 100) * 100);
+  const money = value => new Intl.NumberFormat("ru-RU").format(value) + " ₽";
+
+  function calculate() {
+    const value = Number(cost.value);
+    const adjustment = Math.max(-50, Math.min(100, Number(marginAdjust.value) || 0));
+    const rule = rules[category.value];
+
+    localStorage.setItem("androidCalcCategory", category.value);
+    localStorage.setItem("androidCalcCost", cost.value);
+    localStorage.setItem("androidCalcMarginAdjust", marginAdjust.value);
+
+    if (!Number.isFinite(value) || value < 0 || cost.value === "") {
+      minPrice.textContent = "—";
+      recommendedPrice.textContent = "—";
+      maxPrice.textContent = "—";
+      grossProfit.textContent = "—";
+      grossMargin.textContent = "—";
+      masterPay.textContent = "—";
+      receiverPay.textContent = "—";
+      serviceProfit.textContent = "—";
+      formulaText.textContent = "Введите себестоимость детали.";
+      return;
+    }
+
+    const tier = rule.tiers.find(t => value <= t.max);
+    const baseRaw = value * tier.k + tier.fixed;
+    const baseProfit = Math.max(0, baseRaw - value);
+    const adjustedRaw = value + baseProfit * (1 + adjustment / 100);
+    const rec = round100(adjustedRaw);
+    const min = round100(rec * (1 - rule.spread));
+    const max = round100(rec * (1 + rule.spread));
+    const profit = rec - value;
+    const margin = rec > 0 ? (profit / rec) * 100 : 0;
+
+    minPrice.textContent = money(min);
+    recommendedPrice.textContent = money(rec);
+    maxPrice.textContent = money(max);
+    grossProfit.textContent = money(profit);
+    grossMargin.textContent = margin.toFixed(1).replace(".", ",") + "%";
+
+    const masterAmount = Math.round(profit * 0.30);
+    const receiverAmount = Math.round(profit * 0.06);
+    const serviceAmount = profit - masterAmount - receiverAmount;
+
+    masterPay.textContent = money(masterAmount);
+    receiverPay.textContent = money(receiverAmount);
+    serviceProfit.textContent = money(serviceAmount);
+
+    formulaText.textContent =
+      `${rule.name}\n` +
+      `Базовая цена: ${money(value)} × ${tier.k} + ${money(tier.fixed)} = ${money(baseRaw)}\n` +
+      `Базовая прибыль: ${money(baseProfit)}\n` +
+      `Корректировка прибыльной части: ${adjustment > 0 ? "+" : ""}${adjustment}%\n` +
+      `Цена после корректировки: ${money(adjustedRaw)}\n` +
+      `После округления: ${money(rec)}\n` +
+      `Валовая прибыль: ${money(profit)}\n` +
+      `Валовая маржа: ${margin.toFixed(1).replace(".", ",")}%\n` +
+      `Диапазон цены: ±${Math.round(rule.spread * 100)}%`;
+  }
+
+  category.addEventListener("change", calculate);
+  cost.addEventListener("input", calculate);
+  marginAdjust.addEventListener("input", calculate);
+
+  function updateEconomyVisibility() {
+    economyBlock.classList.toggle("hidden", !economyToggle.checked);
+    localStorage.setItem("androidCalcShowEconomy", economyToggle.checked ? "1" : "0");
+  }
+
+  economyToggle.addEventListener("change", updateEconomyVisibility);
+
+  document.getElementById("clearBtn").addEventListener("click", () => {
+    cost.value = "";
+    marginAdjust.value = "0";
+    calculate();
+    cost.focus();
+  });
+
+  category.value = localStorage.getItem("androidCalcCategory") || "screen";
+  cost.value = localStorage.getItem("androidCalcCost") || "";
+  marginAdjust.value = localStorage.getItem("androidCalcMarginAdjust") || "0";
+  economyToggle.checked = localStorage.getItem("androidCalcShowEconomy") !== "0";
+  updateEconomyVisibility();
+  calculate();
+</script>
+</body>
+</html>
